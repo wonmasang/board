@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="board.dao.BoardDao">
+	<sql id="searchWhere">
+		<choose>
+			<when test="searchSelect =='제목' and searchSelect != null">
+				where title like '%'||#{keyword }||'%'
+			</when>
+			<when test="searchSelect =='내용' and searchSelect != null">
+				where content like '%'||#{keyword }||'%'
+			</when>
+			<when test="searchSelect =='작성자' and searchSelect != null">
+				where writer like '%'||#{keyword }||'%'
+			</when>
+		</choose>
+	</sql>
+
+	<select id="list" resultType="board.dto.BoardDto">
+		select * from board order by boardNo desc
+	</select>
+	
+	<select id="boardTotalCount" resultType="int">
+		select count(*) from board
+	</select>
+	
+<!-- 	<select id="pagingList" parameterType="board.util.Paging" resultType="board.dto.BoardDto"> -->
+<!-- 		select * from  -->
+<!-- 			(select rownum anum, a.* from -->
+<!-- 					(select rownum rnum, r.* from -->
+<!-- 						(select boardNO -->
+<!-- 							, title -->
+<!-- 							, writer -->
+<!-- 							, content -->
+<!-- 							, hit -->
+<!-- 							, reg_date  -->
+<!-- 						from board  -->
+<!-- 						<if test="searchSelect != '' and searchSelect != null"> -->
+<!-- 						where ${searchSelect } like '%'||#{keyword }||'%' -->
+<!-- 						</if> -->
+<!-- 						order by boardNo desc) r -->
+<!-- 					order by rnum desc) a -->
+<!-- 			) -->
+<!-- 		where rnum between #{startNo } and #{endNo } order by anum desc -->
+<!-- 	</select> -->
+
+
+	<select id="pagingList" parameterType="board.util.Paging" resultType="board.dto.BoardDto">
+		select * from
+			(select rownum rnum, r.* from
+				(select rownum pnum, p.* from
+					(select dense_rank() over(order by grp)rank, a.* from
+				    	(select c.*
+				    		,(select count(*) from coment where cmtboardno = c.boardNo and del = 0)as commentCount 
+				    		,(select count(*) from board_file where b_boardno = c.boardNo)as fileCount 
+				    		from board c 
+				    		<if test="searchSelect != '' and searchSelect != null">
+							where ${searchSelect } like '%'||#{keyword }||'%' and del=0
+	 						</if>
+				    	)a
+					order by grp, grpord desc)
+				p order by pnum desc)
+			r)
+		where rnum between #{startNo } and #{endNo }
+	</select>
+	
+	<select id="searchTotalCount" parameterType="board.util.Paging" resultType="int">
+		select count(*) from board
+		where ${searchSelect } like '%'||#{keyword }||'%'
+	</select>
+	
+	<select id="listView" parameterType="board.dto.BoardDto" resultType="board.dto.BoardDto">
+		select * from board where boardNo = #{boardNo }
+	</select>
+	
+	<select id="fileListView" parameterType="board.dto.BoardDto" resultType="board.dto.FileDto">
+		select a.*, round(b_file_size/1024,1)as file_size_kb from board_file a where b_boardno = #{boardNo } and b_del = 0 
+		order by b_original_filename desc
+	</select>
+	
+	<update id="updateHit" parameterType="board.dto.BoardDto">
+		update board set hit = hit + 1 where boardNo = #{boardNo }
+	</update>
+	
+	<insert id="write" parameterType="board.dto.BoardDto" useGeneratedKeys="true" keyProperty="boardNo" keyColumn="boardNo">
+		insert into board (boardNo, title, writer, content, pw, grp, grpord, depth)
+		values (board_seq.nextval, #{title }, #{writer }, #{content }, #{pw }, board_seq.currval, 1, 0)
+	</insert>
+	
+	<insert id="fileUpload" parameterType="board.dto.FileDto">
+		insert into board_file (b_fileno, b_boardno, b_original_filename, b_stored_filename, b_file_size)
+		values (b_file_seq.nextval, #{b_boardno }, #{b_original_filename }, #{b_stored_filename }, #{b_file_size })
+	</insert>
+	
+	<select id="selectFile" parameterType="board.dto.FileDto" resultType="board.dto.FileDto">
+		select * from board_file where b_fileno = #{b_fileno }
+	</select>
+	
+	<select id="selectModify" parameterType="board.dto.BoardDto" resultType="board.dto.BoardDto">
+		select * from board where boardNo = #{boardNo }
+	</select>
+	
+	<update id="modify" parameterType="board.dto.BoardDto">
+		update board 
+		set title = #{title }
+			, content = #{content }
+			, pw = #{pw }
+			, writer = #{writer }
+		where boardNo = #{boardNo }
+	</update>
+	
+	<select id="fileCount" parameterType="board.dto.FileDto" resultType="int">
+		select count(*) from board_file where b_fileno = #{b_fileno }
+	</select>
+	
+	<delete id="fileDelete" parameterType="board.dto.FileDto">
+		delete from board_file where b_fileno = #{b_fileno }
+	</delete>
+	
+<!-- 	<delete id="delete" parameterType="board.dto.BoardDto"> -->
+<!-- 		delete from board where boardNo = #{boardNo } -->
+<!-- 	</delete> -->
+
+	<select id="selectchild" parameterType="board.dto.BoardDto" resultType="int">
+		select count(*) from board where parentNo = #{boardNo }
+	</select>
+
+	<update id="updateDel" parameterType="board.dto.BoardDto">
+		update board set del = 1 where boardNo = #{boardNo }
+	</update>
+	
+	<select id="selectParent" parameterType="board.dto.BoardDto" resultType="board.dto.BoardDto">
+		select a.*, (select count(*) from board where parentNo = #{parentNo })as parentChild from board a
+		where boardNo = #{parentNo }
+	</select>
+	
+	<delete id="deleteAll" parameterType="board.dto.BoardDto">
+		delete from board where boardNo = #{boardNo } or boardNo = #{parentNo }
+	</delete>
+	
+	<delete id="fileDoDelete" parameterType="board.dto.BoardDto">
+		delete from board_file where b_boardno = #{boardNo }
+	</delete>
+	
+	<delete id="delete" parameterType="board.dto.BoardDto">
+		delete from board where boardNo = #{boardNo }
+	</delete>
+	
+	<select id="countPwCheck" parameterType="board.dto.BoardDto" resultType="int">
+		select count(*) from board where boardNo = #{boardNo } and pw = #{pw }
+	</select>
+	
+	<update id="updateReply" parameterType="board.dto.BoardDto">
+		update board set grpord = grpord+1 where grp = #{grp } and grpord > #{grpord }
+	</update>
+	
+	<insert id="reply" parameterType="board.dto.BoardDto">
+		insert into board (boardNo, title, writer, content, pw, grp, grpord, depth, parentNo)
+		values (board_seq.nextval, #{title }, #{writer }, #{content }, #{pw }, #{grp }, #{grpord }+1, #{depth }+1, #{parentNo })
+	</insert>
+	
+	<select id="commentList" parameterType="int" resultType="board.dto.CommentDto">
+		select * from coment where cmtboardno = #{boardNo } order by grp desc, grpord
+	</select>
+
+	<insert id="commentInsert" parameterType="board.dto.CommentDto">
+		insert into coment(cmtNo, cmtWriter, cmtContent, cmtBoardNo, grp, grpord, depth, cmtpw)
+		values(coment_seq.nextval, #{cmtwriter }, #{cmtcontent }, #{cmtboardno}, coment_seq.currval, 1, 0, #{cmtpw })
+	</insert>
+	
+	<update id="commentUpdate" parameterType="board.dto.CommentDto">
+		update coment set grpord = grpord+1 where grp = #{grp } and grpord > #{grpord }
+	</update>
+	
+	<insert id="commentReply" parameterType="board.dto.CommentDto">
+		insert into coment(cmtNo, cmtWriter, cmtContent, cmtboardno, grp, grpord, depth, parentNo, cmtpw)
+		values(coment_seq.nextval, #{cmtwriter }, #{cmtcontent }, #{cmtboardno}, #{grp }, #{grpord }+1, #{depth }+1, #{parentNo }, #{cmtpw })
+	</insert>
+	
+	<select id="selectChildComment" parameterType="board.dto.CommentDto" resultType="int">
+		select count(*) from coment where parentNo = #{cmtno }
+	</select>
+	
+	<update id="commUpdateDel" parameterType="board.dto.CommentDto">
+		update coment set del = 1 where cmtno = #{cmtno }
+	</update>
+	
+	<select id="selectComParent" parameterType="board.dto.CommentDto" resultType="board.dto.CommentDto">
+		select a.*, (select count(*) from coment where parentNo = #{parentNo })as parentChild from coment a
+		where cmtno = #{parentNo }
+	</select>
+	
+	<delete id="commDeleteAll" parameterType="board.dto.CommentDto">
+		delete from coment where cmtno = #{cmtno } or cmtno = #{parentNo }
+	</delete>
+	
+	<delete id="commDelete" parameterType="board.dto.CommentDto">
+		delete from coment where cmtno = #{cmtno }
+	</delete>
+	
+	<select id="countPwCheckComm" parameterType="board.dto.CommentDto" resultType="int">
+		select count(*) from coment where cmtno = #{cmtno } and cmtpw = #{cmtpw }
+	</select>
+
+</mapper>

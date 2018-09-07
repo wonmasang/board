@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="board.dao.ExcelDao">
+	
+	<select id="getAllList" resultType="board.dto.BoardDto">
+			select rownum rnum, r.* from
+				(select rownum pnum, p.* from
+					(select dense_rank() over(order by grp)rank, a.* from
+				    	(select * from board where del=0)a
+					order by grp, grpord desc)
+				p order by pnum desc)
+			r
+	</select>
+	
+	<select id="getSearchList" parameterType="board.dto.SearchDto" resultType="board.dto.BoardDto">
+			select rownum rnum, r.* from
+				(select rownum pnum, p.* from
+					(select dense_rank() over(order by grp)rank, a.* from
+				    	(select * from board where ${searchSelect } like '%'||#{keyword }||'%' and del=0)a
+					order by grp, grpord desc)
+				p order by pnum desc)
+			r
+	</select>
+	
+	
+	
+<!-- 	<select id="getAllComments" parameterType="board.dto.CommentDto" resultType="board.dto.CommentDto"> -->
+<!-- 			select rownum rnum, r.* from -->
+<!-- 				(select rownum pnum, p.* from -->
+<!-- 					(select dense_rank() over(order by grp)rank, a.* from -->
+<!-- 				    	(select * from coment where del=0)a -->
+<!-- 					order by grp, grpord desc) -->
+<!-- 				p order by pnum desc) -->
+<!-- 			r -->
+<!-- 	</select> -->
+
+</mapper>
